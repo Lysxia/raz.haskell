@@ -98,16 +98,16 @@ move' d (Cons a rest) s = (rest, a, s)
 move' d (Level lv rest) s = move' d rest (Level lv s)
 move' d f s = move' d (trim d f) s
 
-focus :: Tree a -> Int -> Raz a
-focus t p | p < 0 || p >= size t = error "focus out of bounds"
-focus t p = focus' t p (Nil, Nil)
+focus :: Int -> Tree a -> Raz a
+focus p t | p < 0 || p >= size t = error "focus out of bounds"
+focus p t = focus' p (Nil, Nil) t
 
-focus' :: Tree a -> Int -> (TList a, TList a) -> Raz a
-focus' Empty _ _ = error "internal Empty"
-focus' (Leaf a) p (l, r) = (l, a, r) -- p == 0
-focus' (Bin lv _ bl br) p (l, r)
-  | p < c = focus' bl p (l, Level lv (Tree br r))
-  | otherwise = focus' br (p - c) (Level lv (Tree bl l), r)
+focus' :: Int -> (TList a, TList a) -> Tree a -> Raz a
+focus' _ _ Empty = error "internal Empty"
+focus' p (l, r) (Leaf a) = (l, a, r) -- p == 0
+focus' p (l, r) (Bin lv _ bl br)
+  | p < c = focus' p (l, Level lv (Tree br r)) bl
+  | otherwise = focus' (p - c) (Level lv (Tree bl l), r) br
   where c = size bl
 
 joinSides :: Tree a -> Tree a -> Tree a
@@ -154,7 +154,7 @@ unfocus (l, a, r) = joinSides (grow L l) . joinSides (Leaf a) $ grow R r
 -- * Combinators
 
 insertAt' :: MonadRandom m => Dir -> Int -> a -> Tree a -> m (Tree a)
-insertAt' d i a = fmap unfocus . insert d a . flip focus i
+insertAt' d i a = fmap unfocus . insert d a . focus i
 
 -- * Displaying Raz
 
@@ -184,5 +184,6 @@ halfToList d (Tree t rest) = halfToList d rest . treeToList d t
 
 -- * General functions
 
+infixl 1 <&>
 (<&>) :: Functor f => f a -> (a -> b) -> f b
 (<&>) = flip fmap
