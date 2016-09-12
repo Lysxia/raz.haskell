@@ -1,0 +1,36 @@
+name:                raz
+version:             0.1.0.0
+synopsis:            Random Access Zippers
+description:         Please see README.md
+homepage:            https://github.com/lysxia/raz
+license:             MIT
+license-file:        LICENSE
+author:              Li-yao Xia
+maintainer:          lysxia@gmail.com
+category:            Algorithms
+build-type:          Simple
+-- extra-source-files:
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:
+    Data.Raz.Core
+  build-depends:
+    base >= 4.8 && < 5,
+    MonadRandom,
+    random
+  default-language:    Haskell2010
+
+test-suite raz-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  build-depends:       base
+                     , raz
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/githubuser/raz
