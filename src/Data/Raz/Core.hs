@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
@@ -209,25 +210,25 @@ unfocus (l, a, r) = joinSides (grow L l) . joinSides (Leaf a) $ grow R r
 
 fromList :: MonadRandom m => [a] -> m (Tree a)
 fromList [] = return Empty
-fromList [x] = return (Leaf x)
-fromList (x1 : x2 : xs) =
-  randomLevel >>= \lv ->
-    fromList' xs lv $ \mkR ->
-      bin lv (Leaf x1) (mkR (Leaf x2))
+fromList (a : as) =
+  fromList' (Tree (Leaf a) Nil) as
 
 fromList'
-  :: MonadRandom m
-  => [a] -> Int -> ((Tree a -> Tree a) -> Tree a) -> m (Tree a)
-fromList' [] _ k = return (k id)
-fromList' (x : xs) lv k =
-  randomLevel >>= \lv' ->
-    fromList' xs lv' $ \mkR ->
-      let
-        r = mkR (Leaf x)
-      in if lv >= lv' then
-        k $ \l -> bin lv' l r
-      else
-        bin lv' (k id) r
+  :: MonadRandom m => TList a -> [a] -> m (Tree a)
+fromList' !ls [] = return (fold ls)
+fromList' !ls (a : as) =
+  randomLevel >>= \lv ->
+    fromList' (Tree (Leaf a) (push lv ls)) as
+
+push :: Lev -> TList a -> TList a
+push lv (Tree t (Level lv' (Tree t' ls)))
+  | lv > lv' = push lv (Tree (bin lv' t' t) ls)
+push lv ls = Level lv ls
+
+fold :: TList a -> Tree a
+fold (Tree t (Level lv (Tree t' ls))) = fold (Tree (bin lv t' t) ls)
+fold (Tree t _) = t
+fold _ = error "internal error"
 
 bin :: Lev -> Tree a -> Tree a -> Tree a
 bin lv l r = Bin lv tot l r
@@ -264,6 +265,14 @@ halfToList d Nil = id
 halfToList d (Cons a rest) = halfToList d rest . (a :)
 halfToList d (Level _ rest) = halfToList d rest
 halfToList d (Tree t rest) = halfToList d rest . treeToList d t
+
+showTree :: (a -> String) -> Tree a -> String
+showTree show' Empty = "Empty"
+showTree show' (Leaf a) = show' a
+showTree show' (Bin lv _ l r) =
+  "(" ++ showTree show' l ++ ") " ++
+  show lv ++
+  " (" ++ showTree show' r ++ ")"
 
 -- * General functions
 

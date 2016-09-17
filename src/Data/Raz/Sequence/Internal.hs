@@ -148,3 +148,4 @@ viewL (Seq' g t) = Raz.viewC raz :< Seq' g t'
   where
     raz = Raz.focusL $ t
     t' = Raz.unfocus . Raz.removeC Raz.R $ raz
+
