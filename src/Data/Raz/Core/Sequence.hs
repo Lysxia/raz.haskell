@@ -1,7 +1,8 @@
 module Data.Raz.Core.Sequence where
 
 import Control.Monad.Random
-import Prelude hiding (filter, lookup)
+import Data.Maybe (listToMaybe)
+import Prelude hiding (filter, lookup, take, drop, splitAt)
 
 import Data.Raz.Core
 
@@ -146,7 +147,84 @@ adjust' f n t = checked n (unfocus . adjustC' f . focus n) t t
 update :: Int -> a -> Tree a -> Tree a
 update n a t = checked n (unfocus . alterC a . focus n) t t
 
+-- | Helper function for checking bounds.
 checked :: Int -> (Tree a -> b) -> b -> Tree a -> b
 checked n f b t
   | n < 0 || size t <= n = b
   | otherwise = f t
+
+take :: Int -> Tree a -> Tree a
+take n _ | n <= 0 = Empty
+take _ (Leaf a) = Leaf a
+take n t@(Bin lv c l r)
+  | n <= size l = take n l
+  | n < c = Bin lv n l (take (n - size l) r)
+  | otherwise = t
+
+drop :: Int -> Tree a -> Tree a
+drop n t | n <= 0 = t
+drop _ (Leaf _) = Empty
+drop n (Bin lv c l r)
+  | n < size l = Bin lv (c - n) (drop n l) r
+  | n < c = drop (n - size l) r
+  | otherwise = Empty
+
+insertAt :: MonadRandom m => Int -> a -> Tree a -> m (Tree a)
+insertAt = insertAt' L
+
+deleteAt :: Int -> Tree a -> Tree a
+deleteAt i t | i < 0 = t
+deleteAt i Empty = Empty
+deleteAt i (Leaf a) = Empty
+deleteAt i t@(Bin lv c l r)
+  | i < size l = Bin lv (c - 1) (deleteAt i l) r
+  | i < c = Bin lv c l (deleteAt (i - size l) r)
+  | otherwise = t
+
+splitAt :: Int -> Tree a -> (Tree a, Tree a)
+splitAt n t | n <= 0 = (Empty, t)
+splitAt n Empty = (Empty, Empty)
+splitAt n (Leaf a) = (Leaf a, Empty)
+splitAt n t@(Bin lv c l r)
+  | n < size l = let (ll, rl) = splitAt n l in (ll, Bin lv (c - n) rl r)
+  | n == size l = (l, r)
+  | n < c = let (lr, rr) = splitAt (n - size l) r in (Bin lv n l lr, rr)
+  | otherwise = (t, Empty)
+
+-- ** Indexing with predicates
+
+elemIndexL :: Eq a => a -> Tree a -> Maybe Int
+elemIndexL a = findIndexL (a ==)
+
+elemIndicesL :: Eq a => a -> Tree a -> [Int]
+elemIndicesL a = findIndicesL (a ==)
+
+elemIndexR :: Eq a => a -> Tree a -> Maybe Int
+elemIndexR a = findIndexR (a ==)
+
+elemIndicesR :: Eq a => a -> Tree a -> [Int]
+elemIndicesR a = findIndicesR (a ==)
+
+findIndexL :: (a -> Bool) -> Tree a -> Maybe Int
+findIndexL p = listToMaybe . findIndicesL p
+
+findIndicesL :: (a -> Bool) -> Tree a -> [Int]
+findIndicesL p t = findIndicesL' 0 p t []
+
+findIndicesL' :: Int -> (a -> Bool) -> Tree a -> [Int] -> [Int]
+findIndicesL' n p (Leaf a) | p a = (n :)
+findIndicesL' n p (Bin _ _ l r)
+  = findIndicesL' n p l . findIndicesL' (n + size l) p r
+findIndicesL' _ _ _ = id
+
+findIndexR :: (a -> Bool) -> Tree a -> Maybe Int
+findIndexR p = listToMaybe . findIndicesR p
+
+findIndicesR :: (a -> Bool) -> Tree a -> [Int]
+findIndicesR p t = findIndicesR' 0 p t []
+
+findIndicesR' :: Int -> (a -> Bool) -> Tree a -> [Int] -> [Int]
+findIndicesR' n p (Leaf a) | p a = (n :)
+findIndicesR' n p (Bin _ _ l r)
+  = findIndicesR' (n + size l) p r . findIndicesR' n p l
+findIndicesR' _ _ _ = id
