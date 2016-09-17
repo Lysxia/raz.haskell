@@ -16,6 +16,8 @@ library
   hs-source-dirs:      src
   exposed-modules:
     Data.Raz.Core
+    Data.Raz.Core.Sequence
+    Data.Raz.Sequence.Internal
   build-depends:
     base >= 4.8 && < 5,
     MonadRandom,

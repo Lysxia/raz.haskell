@@ -1,10 +1,15 @@
-{-# language BangPatterns #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveTraversable #-}
 module Data.Raz.Core where
 
-import Control.Monad.Random
+import Control.Monad.Random hiding (fromList)
 import Data.Bits
+import Data.Foldable (toList)
 import Data.Function
 import Prelude hiding (tail)
+import System.IO.Unsafe
+import Text.Read
 
 type Lev = Int
 type Cnt = Int
@@ -14,14 +19,34 @@ data Tree a
   = Empty
   | Leaf a
   | Bin !Lev !Cnt !(Tree a) !(Tree a)
+  deriving (Functor, Foldable, Traversable)
 
 data TList a
   = Nil
   | Cons a !(TList a)
   | Level Lev !(TList a)
   | Tree !(Tree a) !(TList a)
+  deriving (Eq, Ord, Functor, Foldable, Traversable)
 
 type Raz a = (TList a, a, TList a)
+
+instance Eq a => Eq (Tree a) where
+  (==) = (==) `on` toList
+
+instance Ord a => Ord (Tree a) where
+  compare = compare `on` toList
+
+instance Show a => Show (Tree a) where
+  showsPrec d t = showParen (d > 10) $
+    showString "fromList " . shows (toList t)
+
+instance Read a => Read (Tree a) where
+  readPrec = parens . prec 10 $ do
+    Ident "fromList" <- lexP
+    m <- step readListPrec
+    return (evalRand (fromList m) (unsafePerformIO newStdGen))
+
+  readListPrec = readListPrecDefault
 
 randomLevel :: MonadRandom m => m Lev
 randomLevel = fmap (\n -> countTrailingZeros (n :: Word)) getRandom
@@ -64,6 +89,12 @@ view' d t = view' d $ trim d t
 alterC :: a -> Raz a -> Raz a
 alterC a (l, _, r) = (l, a, r)
 
+adjustC :: (a -> a) -> Raz a -> Raz a
+adjustC f (l, a, r) = (l, f a, r)
+
+adjustC' :: (a -> a) -> Raz a -> Raz a
+adjustC' f (l, a, r) = let a' = f a in a' `seq` (l, a', r)
+
 alter :: Dir -> a -> Raz a -> Raz a
 alter L a (l, e, r) = (alter' L a l, e, r)
 alter R a (l, e, r) = (l, e, alter' R a r)
@@ -79,36 +110,61 @@ insert L a' (l, a, r) = randomLevel <&> \lv -> (Level lv (Cons a' l), a, r)
 insert R a' (l, a, r) = randomLevel <&> \lv -> (l, a, Level lv (Cons a' r))
 
 remove :: Dir -> Raz a -> Raz a
-remove L (l, e, r) = (remove' L l, e, r)
-remove R (l, e, r) = (l, e, remove' R r)
+remove L (l, e, r) = (snd $ remove' L l, e, r)
+remove R (l, e, r) = (l, e, snd $ remove' R r)
 
-remove' :: Dir -> TList a -> TList a
+remove' :: Dir -> TList a -> (a, TList a)
 remove' d Nil = error "remove past end of seq"
-remove' d (Cons _ rest) = rest
+remove' d (Cons a rest) = (a, rest)
 remove' d (Level lv rest) = remove' d rest
 remove' d t = remove' d (trim d t)
 
+removeC :: Dir -> Raz a -> Raz a
+removeC L (l, _, r) = (l', a, r)
+  where
+    (a, l') = remove' L l
+removeC R (l, _, r) = (l, a, r')
+  where
+    (a, r') = remove' R r
+
 move :: Dir -> Raz a -> Raz a
 move L (l, e, r) = move' L l (Cons e r)
-move R (l, e, r) = move' R r (Cons e l) & \(r, e, l) -> (l, e, r)
+move R (l, e, r) = move' R r (Cons e l)
 
 move' :: Dir -> TList a -> TList a -> Raz a
 move' d Nil s = error "move past end of seq"
-move' d (Cons a rest) s = (rest, a, s)
+move' L (Cons a rest) s = (rest, a, s)
+move' R (Cons a rest) s = (s, a, rest)
 move' d (Level lv rest) s = move' d rest (Level lv s)
 move' d f s = move' d (trim d f) s
 
 focus :: Int -> Tree a -> Raz a
 focus p t | p < 0 || p >= size t = error "focus out of bounds"
-focus p t = focus' p (Nil, Nil) t
+focus p t = focus' p Nil Nil t
 
-focus' :: Int -> (TList a, TList a) -> Tree a -> Raz a
-focus' _ _ Empty = error "internal Empty"
-focus' p (l, r) (Leaf a) = (l, a, r) -- p == 0
-focus' p (l, r) (Bin lv _ bl br)
-  | p < c = focus' p (l, Level lv (Tree br r)) bl
-  | otherwise = focus' (p - c) (Level lv (Tree bl l), r) br
+focus' :: Int -> TList a -> TList a -> Tree a -> Raz a
+focus' _ _ _ Empty = error "internal Empty"
+focus' p l r (Leaf a) = (l, a, r) -- p == 0
+focus' p l r (Bin lv _ bl br)
+  | p < c = focus' p l (Level lv (Tree br r)) bl
+  | otherwise = focus' (p - c) (Level lv (Tree bl l)) r br
   where c = size bl
+
+focusL :: Tree a -> Raz a
+focusL = focusL' Nil
+
+focusL' :: TList a -> Tree a -> Raz a
+focusL' _ Empty = error "internal Empty"
+focusL' r (Leaf a) = (Nil, a, r)
+focusL' r (Bin lv _ bl br) = focusL' (Level lv (Tree br r)) bl
+
+focusR :: Tree a -> Raz a
+focusR = focusR' Nil
+
+focusR' :: TList a -> Tree a -> Raz a
+focusR' _ Empty = error "internal Empty"
+focusR' l (Leaf a) = (l, a, Nil)
+focusR' l (Bin lv _ bl br) = focusR' (Level lv (Tree bl l)) br
 
 joinSides :: Tree a -> Tree a -> Tree a
 joinSides t1 t2 =
@@ -150,6 +206,33 @@ grow' d h t =
 
 unfocus :: Raz a -> Tree a
 unfocus (l, a, r) = joinSides (grow L l) . joinSides (Leaf a) $ grow R r
+
+fromList :: MonadRandom m => [a] -> m (Tree a)
+fromList [] = return Empty
+fromList [x] = return (Leaf x)
+fromList (x1 : x2 : xs) =
+  randomLevel >>= \lv ->
+    fromList' xs lv $ \mkR ->
+      bin lv (Leaf x1) (mkR (Leaf x2))
+
+fromList'
+  :: MonadRandom m
+  => [a] -> Int -> ((Tree a -> Tree a) -> Tree a) -> m (Tree a)
+fromList' [] _ k = return (k id)
+fromList' (x : xs) lv k =
+  randomLevel >>= \lv' ->
+    fromList' xs lv' $ \mkR ->
+      let
+        r = mkR (Leaf x)
+      in if lv >= lv' then
+        k $ \l -> bin lv' l r
+      else
+        bin lv' (k id) r
+
+bin :: Lev -> Tree a -> Tree a -> Tree a
+bin lv l r = Bin lv tot l r
+  where
+    tot = size l + size r
 
 -- * Combinators
 
