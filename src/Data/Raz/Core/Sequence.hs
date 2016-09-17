@@ -2,7 +2,7 @@ module Data.Raz.Core.Sequence where
 
 import Control.Monad.Random
 import Data.Maybe (listToMaybe)
-import Prelude hiding (filter, lookup, take, drop, splitAt)
+import Prelude hiding (filter, lookup, take, drop, splitAt, zipWith)
 
 import Data.Raz.Core
 
@@ -228,3 +228,40 @@ findIndicesR' n p (Leaf a) | p a = (n :)
 findIndicesR' n p (Bin _ _ l r)
   = findIndicesR' (n + size l) p r . findIndicesR' n p l
 findIndicesR' _ _ _ = id
+
+-- * Transformations
+
+mapWithIndex :: (Int -> a -> b) -> Tree a -> Tree b
+mapWithIndex f t = mapWithIndex' f 0 t
+
+mapWithIndex' :: (Int -> a -> b) -> Int -> Tree a -> Tree b
+mapWithIndex' _ _ Empty = Empty
+mapWithIndex' f n (Leaf a) = Leaf (f n a)
+mapWithIndex' f n (Bin lv c l r) =
+  Bin lv c (mapWithIndex' f n l) (mapWithIndex' f (n + size l) r)
+
+traverseWithIndex :: Applicative f => (Int -> a -> f b) -> Tree a -> f (Tree b)
+traverseWithIndex f t = traverseWithIndex' f 0 t
+
+traverseWithIndex'
+  :: Applicative f => (Int -> a -> f b) -> Int -> Tree a -> f (Tree b)
+traverseWithIndex' _ _ Empty = pure Empty
+traverseWithIndex' f n (Leaf a) = Leaf <$> f n a
+traverseWithIndex' f n (Bin lv c l r) =
+  Bin lv c <$> traverseWithIndex' f n l <*> traverseWithIndex' f (n + size l) r
+
+-- * Zips
+
+zip :: Tree a -> Tree b -> Tree (a, b)
+zip = zipWith (,)
+
+zipWith :: (a -> b -> c) -> Tree a -> Tree b -> Tree c
+zipWith f a b = fold $ zipWith' f (Tree a Nil) (Tree b Nil) Nil
+
+zipWith' :: (a -> b -> c) -> TList a -> TList b -> TList c -> TList c
+zipWith' f Nil _ = id
+zipWith' f _ Nil = id
+zipWith' f as bs =
+  case (trim R as, trim R bs) of
+    (Cons a (Level la as'), Cons b (Level lb bs')) ->
+      Tree (Leaf (f a b)) . push la
