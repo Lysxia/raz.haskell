@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveFoldable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Data.Raz.Sequence.Internal where
 
 import Control.Applicative
@@ -11,7 +12,7 @@ import Data.Foldable (toList)
 import qualified Data.List as List
 import Data.Tuple (swap)
 import System.IO.Unsafe
-import Prelude hiding (lookup)
+import Prelude hiding (lookup, zipWith)
 
 import qualified Data.Raz.Core as Raz
 import qualified Data.Raz.Core.Sequence as Raz
@@ -30,6 +31,15 @@ instance Ord a => Ord (Seq' g a) where
 
 instance Show a => Show (Seq' g a) where
   showsPrec d (Seq' _ t) = showsPrec d t
+
+-- |
+-- @
+-- pure :: a -> 'Impure' ('Seq' a)
+-- (<*>) :: 'Seq' (a -> b) -> 'Seq' a -> 'Seq' b
+-- @
+instance Applicative (Seq' StdGen) where
+  pure a = createSeq (Raz.Leaf a)
+  (<*>) = seqLift2 Raz.ap
 
 -- ** Synonyms
 
@@ -409,6 +419,39 @@ deleteAt = seqLift . Raz.deleteAt
 splitAt :: RandomGen g => Int -> Seq' g a -> (Seq' g a, Seq' g a)
 splitAt = seqLiftSplit . Raz.splitAt
 
+-- * Transformations
+
+-- |
+-- @
+-- mapWithIndex :: (Int -> a -> b) -> Seq a -> Seq b
+-- @
+mapWithIndex :: (Int -> a -> b) -> Seq' g a -> Seq' g b
+mapWithIndex = seqLift . Raz.mapWithIndex
+
+-- |
+-- @
+-- traverseWithIndex :: Applicative f => (Int -> a -> f b) -> Seq a -> Seq b
+-- @
+traverseWithIndex
+  :: Applicative f => (Int -> a -> f b) -> Seq' g a -> f (Seq' g b)
+traverseWithIndex = seqLens . Raz.traverseWithIndex
+
+-- * Zips
+
+-- |
+-- @
+-- zip :: Seq a -> Seq b -> Seq (a, b)
+-- @
+zip :: Seq' g a -> Seq' g b -> Seq' g (a, b)
+zip = zipWith (,)
+
+-- |
+-- @
+-- zipWith :: (a -> b -> c) -> Seq a -> Seq b -> Seq c
+-- @
+zipWith :: (a -> b -> c) -> Seq' g a -> Seq' g b -> Seq' g c
+zipWith = seqLift2 . Raz.zipWith
+
 -- * Random generator manipulations
 
 splitSeq :: Splittable g => Seq' g a -> (Seq' g a, Seq' g a)
@@ -440,6 +483,11 @@ seqRun g t = Seq' g' t'
 seqLift :: (Raz.Tree a -> Raz.Tree b) -> Seq' g a -> Seq' g b
 seqLift f (Seq' g t) = Seq' g (f t)
 
+seqLift2
+  :: (Raz.Tree a -> Raz.Tree b -> Raz.Tree c)
+  -> Seq' g a -> Seq' g b -> Seq' g c
+seqLift2 f (Seq' g ta) (Seq' _ tb) = Seq' g (f ta tb)
+
 seqLiftSplit
   :: Splittable g
   => (Raz.Tree a -> (Raz.Tree b, Raz.Tree c))
@@ -451,3 +499,9 @@ seqLiftSplit f (Seq' g t) = (Seq' g1 t1, Seq' g2 t2)
 
 seqApply :: (Raz.Tree a -> b) -> Seq' g a -> b
 seqApply f (Seq' _ t) = f t
+
+seqLens
+  :: Functor f
+  => (Raz.Tree a -> f (Raz.Tree b))
+  -> Seq' g a -> f (Seq' g b)
+seqLens f (Seq' g a) = Seq' g <$> f a

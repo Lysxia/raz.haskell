@@ -21,8 +21,11 @@ library
     Data.Raz.Sequence.Internal
   other-modules:
     Data.Raz.Util
+    Data.Raz.Core.Instances
+    Data.Raz.Sequence.Instances
   build-depends:
     base >= 4.8 && < 5,
+    deepseq,
     MonadRandom,
     random
   default-language:    Haskell2010

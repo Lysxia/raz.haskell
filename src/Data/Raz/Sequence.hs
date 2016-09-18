@@ -3,3 +3,4 @@ module Data.Raz.Sequence
   ) where
 
 import Data.Raz.Sequence.Internal
+import Data.Raz.Sequence.Instances

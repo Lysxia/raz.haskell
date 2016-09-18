@@ -278,3 +278,16 @@ zipWith' f as bs =
   case (trim R as, trim R bs) of
     (Cons a (Level la as'), Cons b (Level lb bs')) ->
       Tree (Leaf (f a b)) . push la
+
+-- * Helpers
+
+-- | A hacky implementation of the 'Applicative' product.
+
+ap :: Tree (a -> b) -> Tree a -> Tree b
+ap f (Leaf x) = ($ x) <$> f
+ap _ Empty = Empty
+ap f x@(Bin lv' c' _ _) = go f
+  where
+    go (Bin lv c l r) = Bin (lv + lv') (c * c') (go l) (go r)
+    go (Leaf f) = f <$> x
+    go Empty = Empty
