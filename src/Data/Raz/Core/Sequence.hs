@@ -5,6 +5,9 @@ import Data.Maybe (listToMaybe)
 import Prelude hiding (filter, lookup, take, drop, splitAt, zipWith)
 
 import Data.Raz.Core
+import Data.Raz.Util
+
+-- * Construction
 
 cons :: MonadRandom m => a -> Tree a -> m (Tree a)
 cons a Empty = return (Leaf a)

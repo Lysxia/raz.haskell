@@ -12,6 +12,8 @@ import Prelude hiding (tail)
 import System.IO.Unsafe
 import Text.Read
 
+import Data.Raz.Util
+
 type Lev = Int
 type Cnt = Int
 data Dir = L | R deriving (Eq, Ord, Show, Read)
@@ -273,9 +275,3 @@ showTree show' (Bin lv _ l r) =
   "(" ++ showTree show' l ++ ") " ++
   show lv ++
   " (" ++ showTree show' r ++ ")"
-
--- * General functions
-
-infixl 1 <&>
-(<&>) :: Functor f => f a -> (a -> b) -> f b
-(<&>) = flip fmap

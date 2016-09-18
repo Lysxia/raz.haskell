@@ -18,6 +18,8 @@ library
     Data.Raz.Core
     Data.Raz.Core.Sequence
     Data.Raz.Sequence.Internal
+  other-modules:
+    Data.Raz.Util
   build-depends:
     base >= 4.8 && < 5,
     MonadRandom,

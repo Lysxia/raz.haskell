@@ -13,6 +13,7 @@ import System.IO.Unsafe
 
 import qualified Data.Raz.Core as Raz
 import qualified Data.Raz.Core.Sequence as Raz
+import Data.Raz.Util
 
 data Seq' g a = Seq' !g !(Raz.Tree a)
   deriving (Functor, Foldable, Traversable)
