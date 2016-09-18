@@ -35,7 +35,7 @@ instance Show a => Show (Seq' g a) where
 -- |
 -- @
 -- pure :: a -> 'Impure' ('Seq' a)
--- (<*>) :: 'Seq' (a -> b) -> 'Seq' a -> 'Seq' b
+-- (\<*\>) :: 'Seq' (a -> b) -> 'Seq' a -> 'Seq' b
 -- @
 instance Applicative (Seq' StdGen) where
   pure a = createSeq (Raz.Leaf a)
