@@ -2,7 +2,7 @@ name:                raz
 version:             0.1.0.0
 synopsis:            Random Access Zippers
 description:         Please see README.md
-homepage:            https://github.com/lysxia/raz
+homepage:            https://github.com/Lysxia/raz.haskell
 license:             MIT
 license-file:        LICENSE
 author:              Li-yao Xia
@@ -70,4 +70,4 @@ benchmark sequence-bench
 
 source-repository head
   type:     git
-  location: https://github.com/githubuser/raz
+  location: https://github.com/Lysxia/raz.haskell
