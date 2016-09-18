@@ -112,9 +112,9 @@ main = do
               nf (\s -> ((+) <$> s <*> s) `S.index` (S.length s `div` 2)) (S.fromFunction 1000 (+1))
          , bench "ix500000/1000^2" $
               nf (\s -> ((+) <$> s <*> s) `S.index` (S.length s * S.length s `div` 2)) (S.fromFunction 1000 (+1))
-         , bench "ixBIG" $
-              nf (\s -> ((+) <$> s <*> s) `S.index` (S.length s * S.length s `div` 2))
-                 (S.fromFunction (floor (sqrt $ fromIntegral (maxBound::Int))-10) (+1))
+         -- , bench "ixBIG" $
+         --      nf (\s -> ((+) <$> s <*> s) `S.index` (S.length s * S.length s `div` 2))
+         --         (S.fromFunction (floor (sqrt $ fromIntegral (maxBound::Int))-10) (+1))
          , bench "nf100/2500/rep" $
               nf (\(s,t) -> (,) <$> replicate s () <*> replicate t ()) (100,2500)
          , bench "nf100/2500/ff" $
