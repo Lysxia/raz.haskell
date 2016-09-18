@@ -8,7 +8,7 @@ import Data.Maybe (listToMaybe)
 import Prelude hiding
   (filter, lookup, take, drop, splitAt, zipWith)
 
-import Data.Raz.Core
+import Data.Raz.Core.Internal
 import Data.Raz.Util
 
 -- * Construction

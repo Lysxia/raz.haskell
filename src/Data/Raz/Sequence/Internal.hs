@@ -14,7 +14,7 @@ import Data.Tuple (swap)
 import System.IO.Unsafe
 import Prelude hiding (lookup, zipWith)
 
-import qualified Data.Raz.Core as Raz
+import qualified Data.Raz.Core.Internal as Raz
 import qualified Data.Raz.Core.Sequence as Raz
 import Data.Raz.Util
 
