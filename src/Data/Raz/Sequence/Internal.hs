@@ -44,11 +44,13 @@ instance Applicative (Seq' StdGen) where
 -- ** Synonyms
 
 -- $convention
--- The actual type signatures of functions below are as general as possible.
--- Alternative signatures may appear in comments:
---   - A purely informative "enriched" type with 'Impure' and 'Splittable'
---   hinting implementation details.
---   - A specialization at type 'Seq' that parallels the @Data.Sequence@ API.
+-- The actual type signatures of functions in this module are as general as
+-- possible. Alternative signatures may appear in comments:
+--
+--   - a purely informative "enriched" type with 'Impure' and 'Splittable'
+--   marking certain implementation details;
+--
+--   - a specialization at type 'Seq' that parallels the @Data.Sequence@ API.
 
 -- | The sequence type with a default generator.
 type Seq = Seq' StdGen
@@ -101,7 +103,7 @@ singleton a = singleton' (unsafePerformIO newStdGen) a
 --
 -- /O(n)/. Create a sequence from a finite list of elements.
 --
--- The inverse 'fromList' is given by the 'Foldable' instance of 'Seq'.
+-- The inverse 'toList' is given by the 'Foldable' instance of 'Seq'.
 fromList :: [a] -> Seq a
 fromList as = fromList' (unsafePerformIO newStdGen) as
 
@@ -343,21 +345,21 @@ filter = seqLift . Raz.filter
 
 -- |
 -- @
--- lookup :: Int -> Seq a -> Maybe a
+-- lookup :: Int -> 'Seq' a -> Maybe a
 -- @
 lookup :: Int -> Seq' g a -> Maybe a
 lookup = seqApply . Raz.lookup
 
 -- |
 -- @
--- (?!) :: Seq a -> Int -> Maybe a
+-- (?!) :: 'Seq' a -> Int -> Maybe a
 -- @
 (?!) :: Seq' g a -> Int -> Maybe a
 (?!) = flip lookup
 
 -- |
 -- @
--- index :: Seq' g a -> Int -> a
+-- index :: 'Seq' a -> Int -> a
 -- @
 index :: Seq' g a -> Int -> a
 index s n = seqApply (\t -> Raz.index t n) s
@@ -369,6 +371,7 @@ index s n = seqApply (\t -> Raz.index t n) s
 adjust :: (a -> a) -> Int -> Seq' g a -> Seq' g a
 adjust f = seqLift . Raz.adjust f
 
+-- b
 -- |
 -- @
 -- adjust' :: (a -> a) -> Int -> 'Seq' a -> 'Seq' a
@@ -414,7 +417,7 @@ deleteAt = seqLift . Raz.deleteAt
 -- |
 -- @
 -- splitAt :: 'Splittable' g => Int -> Seq' g a -> (Seq' g a, Seq' g a)
--- splitAt :: Int -> Seq a -> (Seq a, Seq a)
+-- splitAt :: Int -> 'Seq' a -> ('Seq' a, 'Seq' a)
 -- @
 splitAt :: RandomGen g => Int -> Seq' g a -> (Seq' g a, Seq' g a)
 splitAt = seqLiftSplit . Raz.splitAt
@@ -423,14 +426,14 @@ splitAt = seqLiftSplit . Raz.splitAt
 
 -- |
 -- @
--- mapWithIndex :: (Int -> a -> b) -> Seq a -> Seq b
+-- mapWithIndex :: (Int -> a -> b) -> 'Seq' a -> 'Seq' b
 -- @
 mapWithIndex :: (Int -> a -> b) -> Seq' g a -> Seq' g b
 mapWithIndex = seqLift . Raz.mapWithIndex
 
 -- |
 -- @
--- traverseWithIndex :: Applicative f => (Int -> a -> f b) -> Seq a -> Seq b
+-- traverseWithIndex :: Applicative f => (Int -> a -> f b) -> 'Seq' a -> 'Seq' b
 -- @
 traverseWithIndex
   :: Applicative f => (Int -> a -> f b) -> Seq' g a -> f (Seq' g b)
@@ -440,19 +443,19 @@ traverseWithIndex = seqLens . Raz.traverseWithIndex
 
 -- |
 -- @
--- zip :: Seq a -> Seq b -> Seq (a, b)
+-- zip :: 'Seq' a -> 'Seq' b -> 'Seq' (a, b)
 -- @
 zip :: Seq' g a -> Seq' g b -> Seq' g (a, b)
 zip = zipWith (,)
 
 -- |
 -- @
--- zipWith :: (a -> b -> c) -> Seq a -> Seq b -> Seq c
+-- zipWith :: (a -> b -> c) -> 'Seq' a -> 'Seq' b -> 'Seq' c
 -- @
 zipWith :: (a -> b -> c) -> Seq' g a -> Seq' g b -> Seq' g c
 zipWith = seqLift2 . Raz.zipWith
 
--- * Random generator manipulations
+-- * Random generator manipulation
 
 splitSeq :: Splittable g => Seq' g a -> (Seq' g a, Seq' g a)
 splitSeq (Seq' g t) = (Seq' g1 t, Seq' g2 t)
