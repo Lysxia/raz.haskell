@@ -9,7 +9,7 @@ author:              Li-yao Xia
 maintainer:          lysxia@gmail.com
 category:            Algorithms
 build-type:          Simple
--- extra-source-files:
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
