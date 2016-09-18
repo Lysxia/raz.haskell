@@ -1,8 +1,12 @@
 module Data.Raz.Core.Sequence where
 
-import Control.Monad.Random
+import Control.Applicative
+import Control.Monad ((>=>), join)
+import Control.Monad.Random hiding (fromList)
+import qualified Data.List as List
 import Data.Maybe (listToMaybe)
-import Prelude hiding (filter, lookup, take, drop, splitAt, zipWith)
+import Prelude hiding
+  (filter, lookup, take, drop, splitAt, zipWith)
 
 import Data.Raz.Core
 import Data.Raz.Util
@@ -25,27 +29,33 @@ append Empty t2 = return t2
 append t1 t2 = randomLevel <&> \lv ->
   t1 `joinSides` Bin lv 0 Empty Empty `joinSides` t2
 
+-- * Repetition
+
+replicate :: MonadRandom m => Int -> a -> m (Tree a)
+replicate n = fromList . List.replicate n
+
 -- * Sublists
 
 -- | /O(n*log n)/. The sequence of suffixes of a sequence.
 tails :: MonadRandom m => Tree a -> m (Tree (Tree a))
-tails t = append (tails' t) (Leaf Empty)
+tails = tailsWith return
+
+-- | A generalization of 'tails' where the suffixes are passed to a
+-- monadic continuation, recording their results.
+tailsWith :: MonadRandom m => (Tree a -> m b) -> Tree a -> m (Tree b)
+tailsWith f t = join $ liftA2 append (tailsWith' f t) (Leaf <$> f Empty)
 
 -- | /O(n*log n)/. The sequence of non-empty suffixes of a sequence.
 --
 -- The underlying tree structure is reused to represent the overall sequence,
 -- as well as every suffix, which might exacerbate worst case situations.
-tails' :: Tree a -> Tree (Tree a)
-tails' Empty = Empty
-tails' t = tails'' t id
-
-tails'' :: Tree a -> (Tree a -> Tree a) -> Tree (Tree a)
-tails'' (Leaf a) k = Leaf (k (Leaf a))
-tails'' (Bin lv c l r) k =
+tailsWith' :: Applicative m => (Tree a -> m b) -> Tree a -> m (Tree b)
+tailsWith' f (Leaf a) = Leaf <$> f (Leaf a)
+tailsWith' f (Bin lv c l r) =
   Bin lv c
-    (tails'' l $ \l' -> k (bin lv l' r))
-    (tails'' r k)
-tails'' Empty _ = error "internal error: empty tree"
+    <$> tailsWith' (\l' -> f (bin lv l' r)) l
+    <*> tailsWith' f r
+tailsWith' f Empty = pure Empty
 
 -- * Sequential searches
 
@@ -87,11 +97,11 @@ spanR p (Bin lv _ l r) =
         (ll, rl) -> (ll, bin lv rl r)
     (lr, rr) -> (bin lv l lr, rr)
 
-breakl :: (a -> Bool) -> Tree a -> (Tree a, Tree a)
-breakl p = spanL (not . p)
+breakL :: (a -> Bool) -> Tree a -> (Tree a, Tree a)
+breakL p = spanL (not . p)
 
-breakr :: (a -> Bool) -> Tree a -> (Tree a, Tree a)
-breakr p = spanR (not . p)
+breakR :: (a -> Bool) -> Tree a -> (Tree a, Tree a)
+breakR p = spanR (not . p)
 
 partition :: (a -> Bool) -> Tree a -> (Tree a, Tree a)
 partition p Empty = (Empty, Empty)
