@@ -1,3 +1,5 @@
+-- | A @Data.Sequence@ replacement.
+
 module Data.Raz.Sequence
   ( module Data.Raz.Sequence.Internal
   ) where
