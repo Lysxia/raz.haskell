@@ -277,7 +277,9 @@ zipWith' f _ Nil = id
 zipWith' f as bs =
   case (trim R as, trim R bs) of
     (Cons a (Level la as'), Cons b (Level lb bs')) ->
-      Tree (Leaf (f a b)) . push la
+      zipWith' f as' bs' . push la . Tree (Leaf (f a b))
+    (Cons a _, Cons b _) ->
+      Tree (Leaf (f a b))
 
 -- * Helpers
 
