@@ -17,6 +17,8 @@ import qualified Data.Raz.Core as Raz
 import qualified Data.Raz.Core.Sequence as Raz
 import Data.Raz.Util
 
+-- * Types
+
 data Seq' g a = Seq' !g !(Raz.Tree a)
   deriving (Functor, Foldable, Traversable)
 
@@ -28,6 +30,15 @@ instance Ord a => Ord (Seq' g a) where
 
 instance Show a => Show (Seq' g a) where
   showsPrec d (Seq' _ t) = showsPrec d t
+
+-- ** Synonyms
+
+-- $convention
+-- The actual type signatures of functions below are as general as possible.
+-- Alternative signatures may appear in comments:
+--   - A purely informative "enriched" type with 'Impure' and 'Splittable'
+--   hinting implementation details.
+--   - A specialization at type 'Seq' that parallels the @Data.Sequence@ API.
 
 -- | The sequence type with a default generator.
 type Seq = Seq' StdGen
@@ -94,12 +105,24 @@ fromList as = fromList' (unsafePerformIO newStdGen) as
 fromFunction :: Int -> (Int -> a) -> Seq a
 fromFunction n f = fromList (fmap f [0 .. n - 1])
 
+-- |
+-- @
+-- (\<|) :: a -> 'Seq' a -> 'Seq' a
+-- @
 (<|) :: RandomGen g => a -> Seq' g a -> Seq' g a
 a <| as = seqBind as (Raz.cons a)
 
+-- |
+-- @
+-- (|>) :: 'Seq' a -> a -> 'Seq' a
+-- @
 (|>) :: RandomGen g => Seq' g a -> a -> Seq' g a
 as |> a = seqBind as (`Raz.snoc` a)
 
+-- |
+-- @
+-- (>\<) :: 'Seq' a -> 'Seq' a -> 'Seq' a
+-- @
 (><) :: RandomGen g => Seq' g a -> Seq' g a -> Seq' g a
 s1 >< Seq' _ t2 = seqBind s1 (\t1 -> Raz.append t1 t2)
 
@@ -143,7 +166,12 @@ replicateA n a = fromList <$> Monad.replicateM n a
 replicateM :: Monad m => Int -> m a -> m (Seq a)
 replicateM n = unwrapMonad . replicateA n . WrapMonad
 
--- | /O(k)/.
+-- |
+-- @
+-- cycleTaking :: Int -> 'Seq' a -> 'Seq' a
+-- @
+--
+-- /O(k)/.
 cycleTaking :: RandomGen g => Int -> Seq' g a -> Seq' g a
 cycleTaking k (Seq' g t) = fromList' g . List.take k . cycle . toList $ t
 
@@ -180,12 +208,22 @@ unfoldl f = fromList . reverse . List.unfoldr (fmap swap . f)
 
 -- ** Queries
 
--- | /O(1)/. Is this the empty sequence?
+-- |
+-- @
+-- null :: 'Seq' a -> Bool
+-- @
+--
+-- /O(1)/. Is this the empty sequence?
 null :: Seq' g a -> Bool
 null (Seq' _ Raz.Empty) = True
 null _ = False
 
--- | /O(1)/. The number of elements in the sequence.
+-- |
+-- @
+-- length :: 'Seq' a -> Int
+-- @
+--
+-- /O(1)/. The number of elements in the sequence.
 length :: Seq' g a -> Int
 length (Seq' _ t) = Raz.size t
 
@@ -204,6 +242,11 @@ viewl (Seq' g t) = Raz.viewC raz :< Seq' g t'
 
 -- * Sublists
 
+-- |
+-- @
+-- tails :: 'Splittable' g => Seq' g a -> Seq' g (Seq' g a)
+-- tails :: 'Seq' a -> 'Seq' ('Seq' a)
+-- @
 tails :: RandomGen g => Seq' g a -> Seq' g (Seq' g a)
 tails s = seqBind s (Raz.tailsWith splitting)
   where
@@ -211,75 +254,156 @@ tails s = seqBind s (Raz.tailsWith splitting)
 
 -- ** Sequential searches
 
+-- |
+-- @
+-- takeWhileL :: (a -> Bool) -> Seq a -> Seq a
+-- @
 takeWhileL :: (a -> Bool) -> Seq' g a -> Seq' g a
 takeWhileL = seqLift . Raz.takeWhileL
 
+-- |
+-- @
+-- takeWhileR :: (a -> Bool) -> 'Seq' a -> 'Seq' a
+-- @
 takeWhileR :: (a -> Bool) -> Seq' g a -> Seq' g a
 takeWhileR = seqLift . Raz.takeWhileR
 
+-- |
+-- @
+-- dropWhileL :: (a -> Bool) -> 'Seq' a -> 'Seq' a
+-- @
 dropWhileL :: (a -> Bool) -> Seq' g a -> Seq' g a
 dropWhileL = seqLift . Raz.dropWhileL
 
+-- |
+-- @
+-- dropWhileR :: (a -> Bool) -> 'Seq' a -> 'Seq' a
+-- @
 dropWhileR :: (a -> Bool) -> Seq' g a -> Seq' g a
 dropWhileR = seqLift . Raz.dropWhileR
 
+-- |
+-- @
+-- spanl :: 'Splittable' g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
+-- spanl :: (a -> Bool) -> Seq a -> (Seq a, Seq a)
+-- @
 spanl :: RandomGen g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
 spanl = seqLiftSplit . Raz.spanL
 
+-- |
+-- @
+-- spanr :: 'Splittable' g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
+-- spanr :: (a -> Bool) -> 'Seq' a -> ('Seq' a, 'Seq' a)
+-- @
 spanr :: RandomGen g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
 spanr = seqLiftSplit . Raz.spanR
 
+-- |
+-- @
+-- breakl :: 'Splittable' g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
+-- breakl :: (a -> Bool) -> 'Seq' a -> ('Seq' a, 'Seq' a)
+-- @
 breakl :: RandomGen g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
 breakl = seqLiftSplit . Raz.breakL
 
+-- |
+-- @
+-- breakr :: 'Splittable' g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
+-- breakr :: (a -> Bool) -> 'Seq' a -> ('Seq' a, 'Seq' a)
+-- @
 breakr :: RandomGen g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
 breakr = seqLiftSplit . Raz.breakR
 
 -- |
 -- @
--- partition :: Splittable g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
--- partition :: (a -> Bool) -> Seq a -> (Seq a, Seq a)
+-- partition :: 'Splittable' g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
+-- partition :: (a -> Bool) -> 'Seq' a -> ('Seq' a, 'Seq' a)
 -- @
 partition :: RandomGen g => (a -> Bool) -> Seq' g a -> (Seq' g a, Seq' g a)
 partition = seqLiftSplit . Raz.partition
 
+-- |
+-- @
+-- filter :: (a -> Bool) -> 'Seq' a -> 'Seq' a
+-- @
 filter :: (a -> Bool) -> Seq' g a -> Seq' g a
 filter = seqLift . Raz.filter
 
 -- * Indexing
 
+-- |
+-- @
+-- lookup :: Int -> Seq a -> Maybe a
+-- @
 lookup :: Int -> Seq' g a -> Maybe a
 lookup = seqApply . Raz.lookup
 
+-- |
+-- @
+-- (?!) :: Seq a -> Int -> Maybe a
+-- @
+(?!) :: Seq' g a -> Int -> Maybe a
 (?!) = flip lookup
 
+-- |
+-- @
+-- index :: Seq' g a -> Int -> a
+-- @
 index :: Seq' g a -> Int -> a
 index s n = seqApply (\t -> Raz.index t n) s
 
+-- |
+-- @
+-- adjust :: (a -> a) -> Int -> 'Seq' a -> 'Seq' a
+-- @
 adjust :: (a -> a) -> Int -> Seq' g a -> Seq' g a
 adjust f = seqLift . Raz.adjust f
 
+-- |
+-- @
+-- adjust' :: (a -> a) -> Int -> 'Seq' a -> 'Seq' a
+-- @
 adjust' :: (a -> a) -> Int -> Seq' g a -> Seq' g a
 adjust' f = seqLift . Raz.adjust' f
 
+-- |
+-- @
+-- update :: Int -> a -> 'Seq' a -> 'Seq' a
+-- @
 update :: Int -> a -> Seq' g a -> Seq' g a
 update n = seqLift . Raz.update n
 
+-- |
+-- @
+-- take :: Int -> 'Seq' a -> 'Seq' a
+-- @
 take :: Int -> Seq' g a -> Seq' g a
 take = seqLift . Raz.take
 
+-- |
+-- @
+-- drop :: Int -> 'Seq' a -> 'Seq' a
+-- @
 drop :: Int -> Seq' g a -> Seq' g a
 drop = seqLift . Raz.drop
 
+-- |
+-- @
+-- insertAt :: Int -> a -> 'Seq' a -> 'Seq' a
+-- @
 insertAt :: RandomGen g => Int -> a -> Seq' g a -> Seq' g a
 insertAt n = seqDnib . Raz.insertAt n
 
+-- |
+-- @
+-- deleteAt :: Int -> 'Seq' a -> 'Seq' a
+-- @
 deleteAt :: Int -> Seq' g a -> Seq' g a
 deleteAt = seqLift . Raz.deleteAt
 
 -- |
 -- @
--- splitAt :: Splittable g => Int -> Seq' g a -> (Seq' g a, Seq' g a)
+-- splitAt :: 'Splittable' g => Int -> Seq' g a -> (Seq' g a, Seq' g a)
 -- splitAt :: Int -> Seq a -> (Seq a, Seq a)
 -- @
 splitAt :: RandomGen g => Int -> Seq' g a -> (Seq' g a, Seq' g a)
