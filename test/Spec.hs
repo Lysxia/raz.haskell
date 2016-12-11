@@ -4,6 +4,10 @@ import Control.Monad.Random
 
 import Data.Raz.Core
 
+infixl 1 <&>
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) = flip fmap
+
 printRaz :: Raz String -> IO (Raz String)
 printRaz = liftA2 (>>) (putStrLn . showRaz id) return
 
